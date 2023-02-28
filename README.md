@@ -26,6 +26,8 @@ we kindly ask you to cite [the corresponding article](https://doi.org/10.1016/j.
 
 This is the Java implementation of [ABSCAB](https://github.com/jonathanschilling/abscab).
 
+![Build & Test](https://github.com/jonathanschilling/abscab-java/actions/workflows/build.yml/badge.svg)
+
 | description         | link to file |
 | ------------------- | ---------------------------------------------------------------------- |
 | main implementation | [`ABSCAB.java`](src/main/java/de/labathome/abscab/ABSCAB.java)         |
