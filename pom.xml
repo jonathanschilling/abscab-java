@@ -17,9 +17,9 @@
 
 	<url>${jonathanschilling.git.url}${project.name}</url>
 	<scm>
-		<connection>${jonathanschilling.git.root}${project.name}.git</connection>
-		<developerConnection>${jonathanschilling.git.root}${project.name}.git</developerConnection>
-		<url>${jonathanschilling.git.url}${project.name}/tree/master</url>
+		<connection>${jonathanschilling.git.root}abscab-java.git</connection>
+		<developerConnection>${jonathanschilling.git.root}abscab-java.git</developerConnection>
+		<url>${jonathanschilling.git.url}abscab-java/tree/master</url>
 	</scm>
 	<issueManagement>
 		<url>${jonathanschilling.git.url}${project.name}/issues</url>
