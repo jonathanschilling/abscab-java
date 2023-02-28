@@ -26,6 +26,13 @@
 		<system>GitLab Issues</system>
 	</issueManagement>
 
+	<repositories>
+		<repository>
+			<id>aliceinnets</id>
+			<url>https://raw.githubusercontent.com/aliceinnets/maven-repository/master/</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
