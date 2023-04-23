@@ -365,16 +365,20 @@ public class ABSCAB {
 
 				final int nThreads;
 				final int nSourcePerThread;
+				final int nSourceRemainder;
 				if (numVertices-1 < numProcessors) {
 					nThreads = numVertices-1;
+
 					nSourcePerThread = 1;
+					nSourceRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nSourcePerThread = (int) Math.ceil( (numVertices-1.0) / nThreads);
+					nSourcePerThread = (numVertices - 1) / nThreads;
+					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
+				final int idxEvalStart = 0;
+				final int idxEvalEnd   = numEvalPos;
 
 				final double[][][] vectorPotentialContributions = new double[nThreads][3][numEvalPos];
 
@@ -382,6 +386,19 @@ public class ABSCAB {
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int _idxSourceStart =  idxThread      * nSourcePerThread;
+					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						_idxSourceStart += idxThread;
+						_idxSourceEnd   += idxThread + 1;
+					} else {
+						_idxSourceStart += nSourceRemainder;
+						_idxSourceEnd   += nSourceRemainder;
+					}
+					final int idxSourceStart = _idxSourceStart;
+					final int idxSourceEnd   = _idxSourceEnd;
+
 					service.submit(new Runnable() {
 						private int idxThread;
 
@@ -393,18 +410,12 @@ public class ABSCAB {
 						@Override
 						public void run() {
 							try {
-								final int idxSourceStart =           idxThread    * nSourcePerThread;
-								final int idxSourceEnd   = Math.min((idxThread+1) * nSourcePerThread, numVertices-1);
-								final int idxEvalStart   = 0;
-								final int idxEvalEnd     = numEvalPos;
-
 								kernelVectorPotentialPolygonFilament(
 										vertices, current,
 										evalPos,
 										vectorPotentialContributions[idxThread],
 										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
 										useCompensatedSummation);
-
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
@@ -446,51 +457,55 @@ public class ABSCAB {
 						}
 					}
 				}
-			} else { // nEval > nSource
-				// parallelize over nEval
+			} else { // numEvalPos > nSource
+				// parallelize over numEvalPos
 
 				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numVertices-1;
 				final int nEvalPerThread;
+				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
 					nThreads = numEvalPos;
+
 					nEvalPerThread = 1;
+					nEvalRemainder = 0;
 				} else {
 					nThreads = numProcessors;
-					nEvalPerThread = (int) Math.ceil( ((double) numEvalPos) / nThreads );
+
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
 				}
 
 				ExecutorService service = Executors.newFixedThreadPool(nThreads);
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-					service.submit(new Runnable() {
-						private int idxThread;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
+					int _idxEvalStart =  idxThread      * nEvalPerThread;
+					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						_idxEvalStart += idxThread;
+						_idxEvalEnd   += idxThread + 1;
+					} else {
+						_idxEvalStart += nEvalRemainder;
+						_idxEvalEnd   += nEvalRemainder;
+					}
+					final int idxEvalStart = _idxEvalStart;
+					final int idxEvalEnd   = _idxEvalEnd;
+
+					service.submit(() -> {
+						try {
+							kernelVectorPotentialPolygonFilament(
+									vertices, current,
+									evalPos,
+									vectorPotential,
+									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-
-						@Override
-						public void run() {
-							try {
-								final int idxSourceStart = 0;
-								final int idxSourceEnd   = numVertices-1;
-								final int idxEvalStart   =           idxThread    * nEvalPerThread;
-								final int idxEvalEnd     = Math.min((idxThread+1) * nEvalPerThread, numEvalPos);
-
-								kernelVectorPotentialPolygonFilament(
-										vertices, current,
-										evalPos,
-										vectorPotential,
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -567,16 +582,20 @@ public class ABSCAB {
 
 				final int nThreads;
 				final int nSourcePerThread;
+				final int nSourceRemainder;
 				if (numVertices-1 < numProcessors) {
 					nThreads = numVertices-1;
+
 					nSourcePerThread = 1;
+					nSourceRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nSourcePerThread = (int) Math.ceil( ((double)(numVertices - 1)) / nThreads);
+					nSourcePerThread = (numVertices - 1) / nThreads;
+					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
+				final int idxEvalStart = 0;
+				final int idxEvalEnd   = numEvalPos;
 
 				final double[][][] vectorPotentialContributions = new double[nThreads][3][numEvalPos];
 
@@ -584,6 +603,19 @@ public class ABSCAB {
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int _idxSourceStart =  idxThread      * nSourcePerThread;
+					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						_idxSourceStart += idxThread;
+						_idxSourceEnd   += idxThread + 1;
+					} else {
+						_idxSourceStart += nSourceRemainder;
+						_idxSourceEnd   += nSourceRemainder;
+					}
+					final int idxSourceStart = _idxSourceStart;
+					final int idxSourceEnd   = _idxSourceEnd;
+
 					service.submit(new Runnable() {
 						private int idxThread;
 
@@ -595,18 +627,12 @@ public class ABSCAB {
 						@Override
 						public void run() {
 							try {
-								final int idxSourceStart =           idxThread    * nSourcePerThread;
-								final int idxSourceEnd   = Math.min((idxThread+1) * nSourcePerThread, numVertices-1);
-								final int idxEvalStart   = 0;
-								final int idxEvalEnd     = numEvalPos;
-
 								kernelVectorPotentialPolygonFilament(
 										vertexSupplier, current,
 										evalPos,
 										vectorPotentialContributions[idxThread],
 										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
 										useCompensatedSummation);
-
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
@@ -652,50 +678,52 @@ public class ABSCAB {
 				// parallelize over nEval
 
 				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numVertices-1;
 				final int nEvalPerThread;
+				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
 					nThreads = numEvalPos;
+
 					nEvalPerThread = 1;
+					nEvalRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nEvalPerThread = (int) Math.ceil( ((double) numEvalPos) / nThreads );
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
 				}
 
 				ExecutorService service = Executors.newFixedThreadPool(nThreads);
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-					service.submit(new Runnable() {
-						private int idxThread;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
-						}
+					int _idxEvalStart =  idxThread      * nEvalPerThread;
+					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						_idxEvalStart += idxThread;
+						_idxEvalEnd   += idxThread + 1;
+					} else {
+						_idxEvalStart += nEvalRemainder;
+						_idxEvalEnd   += nEvalRemainder;
+					}
+					final int idxEvalStart = _idxEvalStart;
+					final int idxEvalEnd   = _idxEvalEnd;
 
-						@Override
-						public void run() {
+					service.submit(() -> {
 							try {
-								final int idxSourceStart = 0;
-								final int idxSourceEnd   = numVertices-1;
-								final int idxEvalStart   =           idxThread    * nEvalPerThread;
-								final int idxEvalEnd     = Math.min((idxThread+1) * nEvalPerThread, numEvalPos);
+							kernelVectorPotentialPolygonFilament(
+									vertexSupplier, current,
+									evalPos,
+									vectorPotential,
+									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									useCompensatedSummation);
 
-								kernelVectorPotentialPolygonFilament(
-										vertexSupplier, current,
-										evalPos,
-										vectorPotential,
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -772,16 +800,20 @@ public class ABSCAB {
 
 				final int nThreads;
 				final int nSourcePerThread;
+				final int nSourceRemainder;
 				if (numVertices-1 < numProcessors) {
 					nThreads = numVertices-1;
+
 					nSourcePerThread = 1;
+					nSourceRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nSourcePerThread = (int) Math.ceil( (numVertices-1.0) / nThreads);
+					nSourcePerThread = (numVertices - 1) / nThreads;
+					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
+				final int idxEvalStart = 0;
+				final int idxEvalEnd   = numEvalPos;
 
 				final double[][][] magneticFieldContributions = new double[nThreads][3][numEvalPos];
 
@@ -789,6 +821,19 @@ public class ABSCAB {
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int _idxSourceStart =  idxThread      * nSourcePerThread;
+					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						_idxSourceStart += idxThread;
+						_idxSourceEnd   += idxThread + 1;
+					} else {
+						_idxSourceStart += nSourceRemainder;
+						_idxSourceEnd   += nSourceRemainder;
+					}
+					final int idxSourceStart = _idxSourceStart;
+					final int idxSourceEnd   = _idxSourceEnd;
+
 					service.submit(new Runnable() {
 						private int idxThread;
 
@@ -800,18 +845,12 @@ public class ABSCAB {
 						@Override
 						public void run() {
 							try {
-								final int idxSourceStart =           idxThread    * nSourcePerThread;
-								final int idxSourceEnd   = Math.min((idxThread+1) * nSourcePerThread, numVertices-1);
-								final int idxEvalStart   = 0;
-								final int idxEvalEnd     = numEvalPos;
-
 								kernelMagneticFieldPolygonFilament(
 										vertices, current,
 										evalPos,
 										magneticFieldContributions[idxThread],
 										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
 										useCompensatedSummation);
-
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
@@ -857,47 +896,51 @@ public class ABSCAB {
 				// parallelize over nEval
 
 				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numVertices-1;
 				final int nEvalPerThread;
+				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
 					nThreads = numEvalPos;
+
 					nEvalPerThread = 1;
+					nEvalRemainder = 0;
 				} else {
 					nThreads = numProcessors;
-					nEvalPerThread = (int) Math.ceil( ((double) numEvalPos) / nThreads );
+
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
 				}
 
 				ExecutorService service = Executors.newFixedThreadPool(nThreads);
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-					service.submit(new Runnable() {
-						private int idxThread;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
+					int _idxEvalStart =  idxThread      * nEvalPerThread;
+					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						_idxEvalStart += idxThread;
+						_idxEvalEnd   += idxThread + 1;
+					} else {
+						_idxEvalStart += nEvalRemainder;
+						_idxEvalEnd   += nEvalRemainder;
+					}
+					final int idxEvalStart = _idxEvalStart;
+					final int idxEvalEnd   = _idxEvalEnd;
+
+					service.submit(() -> {
+						try {
+							kernelMagneticFieldPolygonFilament(
+									vertices, current,
+									evalPos,
+									magneticField,
+									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-
-						@Override
-						public void run() {
-							try {
-								final int idxSourceStart = 0;
-								final int idxSourceEnd   = numVertices-1;
-								final int idxEvalStart   =           idxThread    * nEvalPerThread;
-								final int idxEvalEnd     = Math.min((idxThread+1) * nEvalPerThread, numEvalPos);
-
-								kernelMagneticFieldPolygonFilament(
-										vertices, current,
-										evalPos,
-										magneticField,
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -974,16 +1017,20 @@ public class ABSCAB {
 
 				final int nThreads;
 				final int nSourcePerThread;
+				final int nSourceRemainder;
 				if (numVertices-1 < numProcessors) {
 					nThreads = numVertices-1;
+
 					nSourcePerThread = 1;
+					nSourceRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nSourcePerThread = (int) Math.ceil( ((double)(numVertices - 1)) / nThreads);
+					nSourcePerThread = (numVertices - 1) / nThreads;
+					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
+				final int idxEvalStart = 0;
+				final int idxEvalEnd   = numEvalPos;
 
 				final double[][][] magneticFieldContributions = new double[nThreads][3][numEvalPos];
 
@@ -991,6 +1038,19 @@ public class ABSCAB {
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int _idxSourceStart =  idxThread      * nSourcePerThread;
+					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						_idxSourceStart += idxThread;
+						_idxSourceEnd   += idxThread + 1;
+					} else {
+						_idxSourceStart += nSourceRemainder;
+						_idxSourceEnd   += nSourceRemainder;
+					}
+					final int idxSourceStart = _idxSourceStart;
+					final int idxSourceEnd   = _idxSourceEnd;
+
 					service.submit(new Runnable() {
 						private int idxThread;
 
@@ -1002,18 +1062,12 @@ public class ABSCAB {
 						@Override
 						public void run() {
 							try {
-								final int idxSourceStart =           idxThread    * nSourcePerThread;
-								final int idxSourceEnd   = Math.min((idxThread+1) * nSourcePerThread, numVertices-1);
-								final int idxEvalStart   = 0;
-								final int idxEvalEnd     = numEvalPos;
-
 								kernelMagneticFieldPolygonFilament(
 										vertexSupplier, current,
 										evalPos,
 										magneticFieldContributions[idxThread],
 										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
 										useCompensatedSummation);
-
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
@@ -1059,50 +1113,51 @@ public class ABSCAB {
 				// parallelize over nEval
 
 				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numVertices-1;
 				final int nEvalPerThread;
+				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
 					nThreads = numEvalPos;
+
 					nEvalPerThread = 1;
+					nEvalRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					// It is better that many threads do more
-					// than one thread needs to do more.
-					nEvalPerThread = (int) Math.ceil( ((double) numEvalPos) / nThreads );
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
 				}
 
 				ExecutorService service = Executors.newFixedThreadPool(nThreads);
 
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-					service.submit(new Runnable() {
-						private int idxThread;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
+					int _idxEvalStart =  idxThread      * nEvalPerThread;
+					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						_idxEvalStart += idxThread;
+						_idxEvalEnd   += idxThread + 1;
+					} else {
+						_idxEvalStart += nEvalRemainder;
+						_idxEvalEnd   += nEvalRemainder;
+					}
+					final int idxEvalStart = _idxEvalStart;
+					final int idxEvalEnd   = _idxEvalEnd;
+
+					service.submit(() -> {
+						try {
+							kernelMagneticFieldPolygonFilament(
+									vertexSupplier, current,
+									evalPos,
+									magneticField,
+									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-
-						@Override
-						public void run() {
-							try {
-								final int idxSourceStart = 0;
-								final int idxSourceEnd   = numVertices-1;
-								final int idxEvalStart   =           idxThread    * nEvalPerThread;
-								final int idxEvalEnd     = Math.min((idxThread+1) * nEvalPerThread, numEvalPos);
-
-								kernelMagneticFieldPolygonFilament(
-										vertexSupplier, current,
-										evalPos,
-										magneticField,
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -1167,6 +1222,11 @@ public class ABSCAB {
 			aYSum = null;
 			aZSum = null;
 		}
+
+		if (idxSourceStart >= vertices[0].length) {
+			System.out.printf("ERROR: access out-of-bounds in kernelVectorPotentialPolygonFilament: %d >= %d\n", idxSourceStart, vertices[0].length);
+		}
+
 
 		double x_i = vertices[0][idxSourceStart];
 		double y_i = vertices[1][idxSourceStart];
