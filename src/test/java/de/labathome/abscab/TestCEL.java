@@ -80,14 +80,16 @@ public class TestCEL {
 
 		// from J. M. Hammersley, "Tables of Complete Elliptic Integrals",
 		// J. Res. Nat. Bureau Std., Vol. 50, No. 1, Jan. 1953 (Research Paper 2386)
-		double kAtHalf = CompleteEllipticIntegral.ellipticK(0.5);
-		double eAtHalf = CompleteEllipticIntegral.ellipticE(0.5);
+		double k1 = 0.5;
+		double kAtHalf = CompleteEllipticIntegral.ellipticK(k1 * k1);
+		double eAtHalf = CompleteEllipticIntegral.ellipticE(k1 * k1);
 //		System.out.printf("  k=0.5  => K(k)=%g  E(k)=%g\n", kAtHalf, eAtHalf);
 		assertRelAbsEquals(1.685750355, kAtHalf, 1.0e-9);
 		assertRelAbsEquals(1.467462209, eAtHalf, 1.0e-9);
 
-		double kClose1 = CompleteEllipticIntegral.ellipticK(1.0/1.01);
-		double eClose1 = CompleteEllipticIntegral.ellipticE(1.0/1.01);
+		double k2 = 1.0/1.01;
+		double kClose1 = CompleteEllipticIntegral.ellipticK(k2 * k2);
+		double eClose1 = CompleteEllipticIntegral.ellipticE(k2 * k2);
 //		System.out.printf("1/k=1.01 => K(k)=%g  E(k)=%g\n", kClose1, eClose1);
 		assertRelAbsEquals(3.361458120, kClose1, 1.0e-9);
 		assertRelAbsEquals(1.028242731, eClose1, 1.0e-9);

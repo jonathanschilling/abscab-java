@@ -93,21 +93,21 @@ public class CompleteEllipticIntegral {
 	/**
 	 * Evaluate the complete elliptic integral of the first kind K(k)
 	 * using cel(k_c, 1, 1, 1) with k^2 + k_c^2 = 1.
-	 * @param k modulus
+	 * @param kSq square of modulus, kSq = k*k
 	 * @return complete elliptic integral of the first kind
 	 */
-	public static double ellipticK(double k) {
-		return cel(Math.sqrt(1.0 - k*k), 1.0, 1.0, 1.0);
+	public static double ellipticK(double kSq) {
+		return cel(Math.sqrt(1.0 - kSq), 1.0, 1.0, 1.0);
 	}
 
 	/**
 	 * Evaluate the complete elliptic integral of the second kind E(k)
 	 * using cel(k_c, 1, 1, k_c^2) with k^2 + k_c^2 = 1.
-	 * @param k modulus
+	 * @param kSq square of modulus, kSq = k*k
 	 * @return complete elliptic integral of the first kind
 	 */
-	public static double ellipticE(double k) {
-		final double kcSq = 1.0 - k*k;
+	public static double ellipticE(double kSq) {
+		final double kcSq = 1.0 - kSq;
 		return cel(Math.sqrt(kcSq), 1, 1, kcSq);
 	}
 }
