@@ -7,44 +7,26 @@ package de.labathome.abscab;
  */
 public class CompensatedSummation {
 
-	/** summation variable */
-	private double s;
-
-	/** first-order correction */
-	private double cs;
-
-	/** second-order correction */
-	private double ccs;
-
-	/** Instantiate a new summation object. */
-	public CompensatedSummation() {
-		reset();
-	}
-
-	/** Reset the accumulated value to zero. */
-	public void reset() {
-		s = 0.0;
-		cs = 0.0;
-		ccs = 0.0;
-	}
-
-	/**
-	 * Add a number of contributions to the sum.
-	 *
-	 * @param contributions contributions to add to the sum
-	 */
-	public void add(double[] contributions) {
-		for (double contribution : contributions) {
-			add(contribution);
-		}
-	}
+	/** Use the static method {@link #compensatedAdd(double[], double)} instead of instiating this class. */
+	private CompensatedSummation() { }
 
 	/**
 	 * Add a single contribution to the sum.
 	 *
-	 * @param contribution contribution to add to the sum
+	 * @param storage [3: s, cs, ccs] summation variables; sum those 3 entries to get the total sum
+	 * @param contribution contribution contribution to add to the sum
 	 */
-	public void add(double contribution) {
+	public static void compensatedAdd(final double[] storage, final double contribution) {
+
+		/** summation variable */
+		double s = storage[0];
+
+		/** first-order correction */
+		double cs = storage[1];
+
+		/** second-order correction */
+		double ccs = storage[2];
+
 		final double t = s + contribution;
 		final double c;
 		if (Math.abs(s) >= Math.abs(contribution)) {
@@ -63,14 +45,9 @@ public class CompensatedSummation {
 		}
 		cs = t2;
 		ccs += cc;
-	}
 
-	/**
-	 * Compute the second-order corrected sum of all contributions.
-	 *
-	 * @return compensated sum of all contributions since creation or last reset
-	 */
-	public double getSum() {
-		return s + cs + ccs;
+		storage[0] = s;
+		storage[1] = cs;
+		storage[2] = ccs;
 	}
 }
