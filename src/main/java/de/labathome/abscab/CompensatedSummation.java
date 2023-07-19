@@ -14,7 +14,7 @@ public class CompensatedSummation {
 	 * Add a single contribution to the sum.
 	 *
 	 * @param storage [3: s, cs, ccs] summation variables; sum those 3 entries to get the total sum
-	 * @param contribution contribution contribution to add to the sum
+	 * @param contribution contribution to add to the sum
 	 */
 	public static void compensatedAdd(final double[] storage, final double contribution) {
 

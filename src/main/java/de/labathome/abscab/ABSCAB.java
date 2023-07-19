@@ -1324,10 +1324,13 @@ public class ABSCAB {
 			throw new RuntimeException("need at least 2 vertices, but only got " + numVertices);
 		}
 
+		// number of straight wire segments
+		int numSegments = numVertices - 1;
+
 		final int numWeights = validateCartesianVectorInput(weights);
 
-		if (numWeights != numVertices-1) {
-			throw new RuntimeException("need equal number of weights as polygon segments, but got " + (numVertices-1) + " segments and " + numWeights + " weights");
+		if (numWeights != numSegments) {
+			throw new RuntimeException("need equal number of weights as polygon segments, but got " + numSegments + " segments and " + numWeights + " weights");
 		}
 
 		final int numEvalPos = validateCartesianVectorInput(evalPos);
@@ -1337,14 +1340,13 @@ public class ABSCAB {
 		}
 
 		if (current == 0.0) {
-			// TODO: Arrays.fill(magneticField, 0.0)
 			return;
 		}
 
 		if (numProcessors == 1) {
 			// single-threaded call
 			final int idxSourceStart = 0;
-			final int idxSourceEnd   = numVertices-1;
+			final int idxSourceEnd   = numSegments;
 			final int idxEvalStart   = 0;
 			final int idxEvalEnd     = numEvalPos;
 			kernelMagneticFieldPolygonFilamentWeighted(
@@ -1356,8 +1358,8 @@ public class ABSCAB {
 		} else {
 			// use multithreading
 
-			if (numVertices-1 > numEvalPos) {
-				// parallelize over nSource-1
+			if (numSegments > numEvalPos) {
+				// parallelize over numSegments
 
 				// Note that each thread needs its own copy of the vectorPotential array,
 				// so this approach might need quite some memory in case the number of
@@ -1377,8 +1379,9 @@ public class ABSCAB {
 					nSourcePerThread = (numVertices - 1) / nThreads;
 					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
-				final int idxEvalStart = 0;
-				final int idxEvalEnd   = numEvalPos;
+
+				final int tIdxEvalStart = 0;
+				final int tIdxEvalEnd   = numEvalPos;
 
 				final double[][][] magneticFieldContributions = new double[nThreads][3][numEvalPos];
 
@@ -1387,40 +1390,32 @@ public class ABSCAB {
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
 
-					int _idxSourceStart =  idxThread      * nSourcePerThread;
-					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					int idxSourceStart =  idxThread      * nSourcePerThread;
+					int idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
 					if (idxThread < nSourceRemainder) {
-						_idxSourceStart += idxThread;
-						_idxSourceEnd   += idxThread + 1;
+						idxSourceStart += idxThread;
+						idxSourceEnd   += idxThread + 1;
 					} else {
-						_idxSourceStart += nSourceRemainder;
-						_idxSourceEnd   += nSourceRemainder;
+						idxSourceStart += nSourceRemainder;
+						idxSourceEnd   += nSourceRemainder;
 					}
-					final int idxSourceStart = _idxSourceStart;
-					final int idxSourceEnd   = _idxSourceEnd;
 
-					service.submit(new Runnable() {
-						private int idxThread;
+					final int tIdxThread      = idxThread;
+					final int tIdxSourceStart = idxSourceStart;
+					final int tIdxSourceEnd   = idxSourceEnd;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
+					service.submit(() -> {
+						try {
+							kernelMagneticFieldPolygonFilamentWeighted(
+									vertices, weights, current,
+									evalPos,
+									magneticFieldContributions[tIdxThread],
+									tIdxSourceStart, tIdxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-
-						@Override
-						public void run() {
-							try {
-								kernelMagneticFieldPolygonFilamentWeighted(
-										vertices, weights, current,
-										evalPos,
-										magneticFieldContributions[idxThread],
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -1436,17 +1431,17 @@ public class ABSCAB {
 				// sum up contributions from source chunks
 				if (useCompensatedSummation) {
 					for (int i=0; i<numEvalPos; ++i) {
-						CompensatedSummation sumX = new CompensatedSummation();
-						CompensatedSummation sumY = new CompensatedSummation();
-						CompensatedSummation sumZ = new CompensatedSummation();
+						final double[] sumX = new double[3];
+						final double[] sumY = new double[3];
+						final double[] sumZ = new double[3];
 						for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-							sumX.add(magneticFieldContributions[idxThread][0][i]);
-							sumY.add(magneticFieldContributions[idxThread][1][i]);
-							sumZ.add(magneticFieldContributions[idxThread][2][i]);
+							CompensatedSummation.compensatedAdd(sumX, magneticFieldContributions[idxThread][0][i]);
+							CompensatedSummation.compensatedAdd(sumY, magneticFieldContributions[idxThread][1][i]);
+							CompensatedSummation.compensatedAdd(sumZ, magneticFieldContributions[idxThread][2][i]);
 						}
-						magneticField[0][i] = sumX.getSum();
-						magneticField[1][i] = sumY.getSum();
-						magneticField[2][i] = sumZ.getSum();
+						magneticField[0][i] += sumX[0]+ sumX[1] + sumX[2];
+						magneticField[1][i] += sumY[0]+ sumY[1] + sumY[2];
+						magneticField[2][i] += sumZ[0]+ sumZ[1] + sumZ[2];
 					}
 				} else {
 					for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
@@ -1461,8 +1456,8 @@ public class ABSCAB {
 				// parallelize over nEval
 
 				final int nThreads;
-				final int idxSourceStart = 0;
-				final int idxSourceEnd   = numVertices-1;
+				final int tIdxSourceStart = 0;
+				final int tIdxSourceEnd   = numSegments;
 				final int nEvalPerThread;
 				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
@@ -1482,17 +1477,18 @@ public class ABSCAB {
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
 
-					int _idxEvalStart =  idxThread      * nEvalPerThread;
-					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					int idxEvalStart =  idxThread      * nEvalPerThread;
+					int idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
 					if (idxThread < nEvalRemainder) {
-						_idxEvalStart += idxThread;
-						_idxEvalEnd   += idxThread + 1;
+						idxEvalStart += idxThread;
+						idxEvalEnd   += idxThread + 1;
 					} else {
-						_idxEvalStart += nEvalRemainder;
-						_idxEvalEnd   += nEvalRemainder;
+						idxEvalStart += nEvalRemainder;
+						idxEvalEnd   += nEvalRemainder;
 					}
-					final int idxEvalStart = _idxEvalStart;
-					final int idxEvalEnd   = _idxEvalEnd;
+
+					final int tIdxEvalStart = idxEvalStart;
+					final int tIdxEvalEnd   = idxEvalEnd;
 
 					service.submit(() -> {
 						try {
@@ -1500,7 +1496,7 @@ public class ABSCAB {
 									vertices, weights, current,
 									evalPos,
 									magneticField,
-									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									tIdxSourceStart, tIdxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
 									useCompensatedSummation);
 						} catch (Exception e) {
 							e.printStackTrace();
@@ -1548,6 +1544,9 @@ public class ABSCAB {
 			throw new RuntimeException("need at least 2 vertices, but only got " + numVertices);
 		}
 
+		// number of straight wire segments
+		int numSegments = numVertices - 1;
+
 		final int numEvalPos = validateCartesianVectorInput(evalPos);
 
 		if (numProcessors < 1) {
@@ -1555,14 +1554,13 @@ public class ABSCAB {
 		}
 
 		if (current == 0.0) {
-			// TODO: Arrays.fill(magneticField, 0.0)
 			return;
 		}
 
 		if (numProcessors == 1) {
 			// single-threaded call
 			final int idxSourceStart = 0;
-			final int idxSourceEnd   = numVertices-1;
+			final int idxSourceEnd   = numSegments;
 			final int idxEvalStart   = 0;
 			final int idxEvalEnd     = numEvalPos;
 			kernelMagneticFieldPolygonFilamentWeighted(
@@ -1574,8 +1572,8 @@ public class ABSCAB {
 		} else {
 			// use multithreading
 
-			if (numVertices-1 > numEvalPos) {
-				// parallelize over nSource-1
+			if (numSegments > numEvalPos) {
+				// parallelize over numSegments
 
 				// Note that each thread needs its own copy of the vectorPotential array,
 				// so this approach might need quite some memory in case the number of
@@ -1595,8 +1593,9 @@ public class ABSCAB {
 					nSourcePerThread = (numVertices - 1) / nThreads;
 					nSourceRemainder = (numVertices - 1) % nThreads;
 				}
-				final int idxEvalStart = 0;
-				final int idxEvalEnd   = numEvalPos;
+
+				final int tIdxEvalStart = 0;
+				final int tIdxEvalEnd   = numEvalPos;
 
 				final double[][][] magneticFieldContributions = new double[nThreads][3][numEvalPos];
 
@@ -1605,40 +1604,32 @@ public class ABSCAB {
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
 
-					int _idxSourceStart =  idxThread      * nSourcePerThread;
-					int _idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					int idxSourceStart =  idxThread      * nSourcePerThread;
+					int idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
 					if (idxThread < nSourceRemainder) {
-						_idxSourceStart += idxThread;
-						_idxSourceEnd   += idxThread + 1;
+						idxSourceStart += idxThread;
+						idxSourceEnd   += idxThread + 1;
 					} else {
-						_idxSourceStart += nSourceRemainder;
-						_idxSourceEnd   += nSourceRemainder;
+						idxSourceStart += nSourceRemainder;
+						idxSourceEnd   += nSourceRemainder;
 					}
-					final int idxSourceStart = _idxSourceStart;
-					final int idxSourceEnd   = _idxSourceEnd;
 
-					service.submit(new Runnable() {
-						private int idxThread;
+					final int tIdxThread      = idxThread;
+					final int tIdxSourceStart = idxSourceStart;
+					final int tIdxSourceEnd   = idxSourceEnd;
 
-						public Runnable init(final int idxThread) {
-							this.idxThread = idxThread;
-							return this;
+					service.submit(() -> {
+						try {
+							kernelMagneticFieldPolygonFilamentWeighted(
+									vertexSupplier, weightSupplier, current,
+									evalPos,
+									magneticFieldContributions[tIdxThread],
+									tIdxSourceStart, tIdxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-
-						@Override
-						public void run() {
-							try {
-								kernelMagneticFieldPolygonFilamentWeighted(
-										vertexSupplier, weightSupplier, current,
-										evalPos,
-										magneticFieldContributions[idxThread],
-										idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
-										useCompensatedSummation);
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}.init(idxThread));
+					});
 				}
 
 				// accept no more new threads and start execution
@@ -1654,17 +1645,17 @@ public class ABSCAB {
 				// sum up contributions from source chunks
 				if (useCompensatedSummation) {
 					for (int i=0; i<numEvalPos; ++i) {
-						CompensatedSummation sumX = new CompensatedSummation();
-						CompensatedSummation sumY = new CompensatedSummation();
-						CompensatedSummation sumZ = new CompensatedSummation();
+						final double[] sumX = new double[3];
+						final double[] sumY = new double[3];
+						final double[] sumZ = new double[3];
 						for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
-							sumX.add(magneticFieldContributions[idxThread][0][i]);
-							sumY.add(magneticFieldContributions[idxThread][1][i]);
-							sumZ.add(magneticFieldContributions[idxThread][2][i]);
+							CompensatedSummation.compensatedAdd(sumX, magneticFieldContributions[idxThread][0][i]);
+							CompensatedSummation.compensatedAdd(sumY, magneticFieldContributions[idxThread][1][i]);
+							CompensatedSummation.compensatedAdd(sumZ, magneticFieldContributions[idxThread][2][i]);
 						}
-						magneticField[0][i] = sumX.getSum();
-						magneticField[1][i] = sumY.getSum();
-						magneticField[2][i] = sumZ.getSum();
+						magneticField[0][i] += sumX[0]+ sumX[1] + sumX[2];
+						magneticField[1][i] += sumY[0]+ sumY[1] + sumY[2];
+						magneticField[2][i] += sumZ[0]+ sumZ[1] + sumZ[2];
 					}
 				} else {
 					for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
@@ -1675,12 +1666,12 @@ public class ABSCAB {
 						}
 					}
 				}
-			} else { // nEval > nSource
-				// parallelize over nEval
+			} else { // numEvalPos > numSegments
+				// parallelize over numEvalPos
 
 				final int nThreads;
-				final int idxSourceStart = 0;
-				final int idxSourceEnd   = numVertices-1;
+				final int tIdxSourceStart = 0;
+				final int tIdxSourceEnd   = numSegments;
 				final int nEvalPerThread;
 				final int nEvalRemainder;
 				if (numEvalPos < numProcessors) {
@@ -1700,17 +1691,18 @@ public class ABSCAB {
 				// submit jobs
 				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
 
-					int _idxEvalStart =  idxThread      * nEvalPerThread;
-					int _idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					int idxEvalStart =  idxThread      * nEvalPerThread;
+					int idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
 					if (idxThread < nEvalRemainder) {
-						_idxEvalStart += idxThread;
-						_idxEvalEnd   += idxThread + 1;
+						idxEvalStart += idxThread;
+						idxEvalEnd   += idxThread + 1;
 					} else {
-						_idxEvalStart += nEvalRemainder;
-						_idxEvalEnd   += nEvalRemainder;
+						idxEvalStart += nEvalRemainder;
+						idxEvalEnd   += nEvalRemainder;
 					}
-					final int idxEvalStart = _idxEvalStart;
-					final int idxEvalEnd   = _idxEvalEnd;
+
+					final int tIdxEvalStart = idxEvalStart;
+					final int tIdxEvalEnd   = idxEvalEnd;
 
 					service.submit(() -> {
 						try {
@@ -1718,7 +1710,7 @@ public class ABSCAB {
 									vertexSupplier, weightSupplier, current,
 									evalPos,
 									magneticField,
-									idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+									tIdxSourceStart, tIdxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
 									useCompensatedSummation);
 						} catch (Exception e) {
 							e.printStackTrace();
@@ -2178,7 +2170,7 @@ public class ABSCAB {
 			int idxEvalEnd,
 			boolean useCompensatedSummation) {
 
-		// setup compensated summation objects
+		// setup compensated summation storage
 		final double[][] bXSum;
 		final double[][] bYSum;
 		final double[][] bZSum;
@@ -2334,20 +2326,15 @@ public class ABSCAB {
 		// needs additional division by length of wire segment!
 		final double bPrefactorL = MU_0_BY_4_PI * current;
 
-		// setup compensated summation objects
-		final CompensatedSummation[] bXSum;
-		final CompensatedSummation[] bYSum;
-		final CompensatedSummation[] bZSum;
+		// setup compensated summation storage
+		final double[][] bXSum;
+		final double[][] bYSum;
+		final double[][] bZSum;
 		if (useCompensatedSummation) {
 			int numEvalPos = idxEvalEnd - idxEvalStart;
-			bXSum = new CompensatedSummation[numEvalPos];
-			bYSum = new CompensatedSummation[numEvalPos];
-			bZSum = new CompensatedSummation[numEvalPos];
-			for (int idxEval = 0; idxEval < numEvalPos; ++idxEval) {
-				bXSum[idxEval] = new CompensatedSummation();
-				bYSum[idxEval] = new CompensatedSummation();
-				bZSum[idxEval] = new CompensatedSummation();
-			}
+			bXSum = new double[numEvalPos][3];
+			bYSum = new double[numEvalPos][3];
+			bZSum = new double[numEvalPos][3];
 		} else {
 			bXSum = null;
 			bYSum = null;
@@ -2436,9 +2423,9 @@ public class ABSCAB {
 
 					// add contribution from wire segment to result
 					if (useCompensatedSummation) {
-						bXSum[idxEval - idxEvalStart].add(bPhi * ePhiX * w_x);
-						bYSum[idxEval - idxEvalStart].add(bPhi * ePhiY * w_y);
-						bZSum[idxEval - idxEvalStart].add(bPhi * ePhiZ * w_z);
+						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi * ePhiX * w_x);
+						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi * ePhiY * w_y);
+						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi * ePhiZ * w_z);
 					} else {
 						magneticField[0][idxEval] += bPhi * ePhiX * w_x;
 						magneticField[1][idxEval] += bPhi * ePhiY * w_y;
@@ -2456,9 +2443,10 @@ public class ABSCAB {
 		if (useCompensatedSummation) {
 			// obtain compensated sums from summation objects
 			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
-				magneticField[0][idxEval] = bXSum[idxEval - idxEvalStart].getSum();
-				magneticField[1][idxEval] = bYSum[idxEval - idxEvalStart].getSum();
-				magneticField[2][idxEval] = bZSum[idxEval - idxEvalStart].getSum();
+				int relIdxEval = idxEval - idxEvalStart;
+				magneticField[0][idxEval] = bXSum[relIdxEval][0] + bXSum[relIdxEval][1] + bXSum[relIdxEval][2];
+				magneticField[1][idxEval] = bYSum[relIdxEval][0] + bYSum[relIdxEval][1] + bYSum[relIdxEval][2];
+				magneticField[2][idxEval] = bZSum[relIdxEval][0] + bZSum[relIdxEval][1] + bZSum[relIdxEval][2];
 			}
 		}
 	}
@@ -2490,20 +2478,15 @@ public class ABSCAB {
 			int idxEvalEnd,
 			boolean useCompensatedSummation) {
 
-		// setup compensated summation objects
-		final CompensatedSummation[] bXSum;
-		final CompensatedSummation[] bYSum;
-		final CompensatedSummation[] bZSum;
+		// setup compensated summation storage
+		final double[][] bXSum;
+		final double[][] bYSum;
+		final double[][] bZSum;
 		if (useCompensatedSummation) {
 			int numEvalPos = idxEvalEnd - idxEvalStart;
-			bXSum = new CompensatedSummation[numEvalPos];
-			bYSum = new CompensatedSummation[numEvalPos];
-			bZSum = new CompensatedSummation[numEvalPos];
-			for (int idxEval = 0; idxEval < numEvalPos; ++idxEval) {
-				bXSum[idxEval] = new CompensatedSummation();
-				bYSum[idxEval] = new CompensatedSummation();
-				bZSum[idxEval] = new CompensatedSummation();
-			}
+			bXSum = new double[numEvalPos][3];
+			bYSum = new double[numEvalPos][3];
+			bZSum = new double[numEvalPos][3];
 		} else {
 			bXSum = null;
 			bYSum = null;
@@ -2598,9 +2581,9 @@ public class ABSCAB {
 
 					// add contribution from wire segment to result
 					if (useCompensatedSummation) {
-						bXSum[idxEval - idxEvalStart].add(bPhi * ePhiX * w_x);
-						bYSum[idxEval - idxEvalStart].add(bPhi * ePhiY * w_y);
-						bZSum[idxEval - idxEvalStart].add(bPhi * ePhiZ * w_z);
+						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi * ePhiX * w_x);
+						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi * ePhiY * w_y);
+						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi * ePhiZ * w_z);
 					} else {
 						magneticField[0][idxEval] += bPhi * ePhiX * w_x;
 						magneticField[1][idxEval] += bPhi * ePhiY * w_y;
@@ -2618,9 +2601,10 @@ public class ABSCAB {
 		if (useCompensatedSummation) {
 			// obtain compensated sums from summation objects
 			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
-				magneticField[0][idxEval] = bXSum[idxEval - idxEvalStart].getSum();
-				magneticField[1][idxEval] = bYSum[idxEval - idxEvalStart].getSum();
-				magneticField[2][idxEval] = bZSum[idxEval - idxEvalStart].getSum();
+				int relIdxEval = idxEval - idxEvalStart;
+				magneticField[0][idxEval] = bXSum[relIdxEval][0] + bXSum[relIdxEval][1] + bXSum[relIdxEval][2];
+				magneticField[1][idxEval] = bYSum[relIdxEval][0] + bYSum[relIdxEval][1] + bYSum[relIdxEval][2];
+				magneticField[2][idxEval] = bZSum[relIdxEval][0] + bZSum[relIdxEval][1] + bZSum[relIdxEval][2];
 			}
 		}
 	}
@@ -2901,6 +2885,8 @@ public class ABSCAB {
 			magneticField[2][idxEval] += bZ * eZ;
 		}
 	}
+
+	// --------------------------------------------------
 
 	/**
 	 * Validate a given vector of Cartesian coordinates and compute the number of
