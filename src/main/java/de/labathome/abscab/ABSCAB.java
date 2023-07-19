@@ -2623,15 +2623,15 @@ public class ABSCAB {
 	 * @return [3: A_x, A_y, A_z][nEvalPos] Cartesian components of the magnetic
 	 *         vector potential evaluated at the given locations (in Tm)
 	 */
-	public static double[][] vectorPotentialCircularFilament(double[] center, double[] normal, double radius,
-			double current, double[][] evalPos) {
-
+	public static double[][] vectorPotentialCircularFilament(
+			double[] center,
+			double[] normal,
+			double radius,
+			double current,
+			double[][] evalPos) {
 		int nEvalPos = validateCartesianVectorInput(evalPos);
-
 		final double[][] vectorPotential = new double[3][nEvalPos];
-
 		vectorPotentialCircularFilament(center, normal, radius, current, evalPos, vectorPotential);
-
 		return vectorPotential;
 	}
 
@@ -2647,15 +2647,15 @@ public class ABSCAB {
 	 * @return [3: B_x, B_y, B_z][nEvalPos] Cartesian components of the magnetic
 	 *         field evaluated at the given locations (in T)
 	 */
-	public static double[][] magneticFieldCircularFilament(double[] center, double[] normal, double radius,
-			double current, double[][] evalPos) {
-
+	public static double[][] magneticFieldCircularFilament(
+			double[] center,
+			double[] normal,
+			double radius,
+			double current,
+			double[][] evalPos) {
 		int nEvalPos = validateCartesianVectorInput(evalPos);
-
 		final double[][] magneticField = new double[3][nEvalPos];
-
 		magneticFieldCircularFilament(center, normal, radius, current, evalPos, magneticField);
-
 		return magneticField;
 	}
 
