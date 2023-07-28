@@ -1582,16 +1582,16 @@ public class ABSCAB {
 				final int nThreads;
 				final int nSourcePerThread;
 				final int nSourceRemainder;
-				if (numVertices-1 < numProcessors) {
-					nThreads = numVertices-1;
+				if (numSegments < numProcessors) {
+					nThreads = numSegments;
 
 					nSourcePerThread = 1;
 					nSourceRemainder = 0;
 				} else {
 					nThreads = numProcessors;
 
-					nSourcePerThread = (numVertices - 1) / nThreads;
-					nSourceRemainder = (numVertices - 1) % nThreads;
+					nSourcePerThread = numSegments / nThreads;
+					nSourceRemainder = numSegments % nThreads;
 				}
 
 				final int tIdxEvalStart = 0;
