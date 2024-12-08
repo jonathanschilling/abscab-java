@@ -9,7 +9,7 @@
 
 	<groupId>de.labathome</groupId>
 	<artifactId>abscab</artifactId>
-	<version>1.0.5</version>
+	<version>1.0.6</version>
 	<packaging>jar</packaging>
 
 	<name>abscab</name>

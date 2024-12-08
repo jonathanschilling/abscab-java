@@ -69,6 +69,52 @@ public class ABSCAB {
 	}
 
 	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 * The computation is parallelized over all available processors.
+	 * Kahan-Babuska compensated summation is used to compute the superposition
+	 * of the contributions from the polygon vertices.
+	 *
+	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilamentWeighted(
+			double[][] vertices,
+			double[] weights,
+			double current,
+			double[][] evalPos) {
+		int numProcessors = Runtime.getRuntime().availableProcessors();
+		return vectorPotentialPolygonFilament(vertices, current, evalPos, numProcessors);
+	}
+
+	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 * The computation is parallelized over all available processors.
+	 * Kahan-Babuska compensated summation is used to compute the superposition
+	 * of the contributions from the polygon vertices.
+	 *
+	 * @param numVertices number of points along polygon
+	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilamentWeighted(
+			int numVertices,
+			IntFunction<double[]> vertexSupplier,
+			IntFunction<Double> weightSupplier,
+			double current,
+			double[][] evalPos) {
+		int numProcessors = Runtime.getRuntime().availableProcessors();
+		return vectorPotentialPolygonFilament(numVertices, vertexSupplier, current, evalPos, numProcessors);
+	}
+
+	/**
 	 * Compute the magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * The computation is parallelized over all available processors.
@@ -111,20 +157,21 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * The computation is parallelized over all available processors.
 	 * Kahan-Babuska compensated summation is used to compute the superposition
 	 * of the contributions from the polygon vertices.
 	 *
 	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @return [3: x, y, z][numEvalPos] magnetic field at evaluation locations; in T
 	 */
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			double[][] vertices,
-			double[][] weights,
+			double[] weights,
 			double current,
 			double[][] evalPos) {
 		int numProcessors = Runtime.getRuntime().availableProcessors();
@@ -132,7 +179,7 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * The computation is parallelized over all available processors.
 	 * Kahan-Babuska compensated summation is used to compute the superposition
@@ -140,6 +187,7 @@ public class ABSCAB {
 	 *
 	 * @param numVertices number of points along polygon
 	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @return [3: x, y, z][numEvalPos] magnetic field at evaluation locations; in T
@@ -147,7 +195,7 @@ public class ABSCAB {
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			int numVertices,
 			IntFunction<double[]> vertexSupplier,
-			IntFunction<double[]> weightSupplier,
+			IntFunction<Double> weightSupplier,
 			double current,
 			double[][] evalPos) {
 		int numProcessors = Runtime.getRuntime().availableProcessors();
@@ -201,6 +249,54 @@ public class ABSCAB {
 	}
 
 	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 * Kahan-Babuska compensated summation is used to compute the superposition
+	 * of the contributions from the polygon vertices.
+	 *
+	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param numProcessors number of processors to use for parallelization
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilamentWeighted(
+			double[][] vertices,
+			double[] weights,
+			double current,
+			double[][] evalPos,
+			int numProcessors) {
+		boolean useCompensatedSummation = true;
+		return vectorPotentialPolygonFilamentWeighted(vertices, weights, current, evalPos, numProcessors, useCompensatedSummation);
+	}
+
+	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 * Kahan-Babuska compensated summation is used to compute the superposition
+	 * of the contributions from the polygon vertices.
+	 *
+	 * @param numVertices number of points along polygon
+	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param numProcessors number of processors to use for parallelization
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilament(
+			int numVertices,
+			IntFunction<double[]> vertexSupplier,
+			IntFunction<Double> weightSupplier,
+			double current,
+			double[][] evalPos,
+			int numProcessors) {
+		boolean useCompensatedSummation = true;
+		return vectorPotentialPolygonFilamentWeighted(numVertices, vertexSupplier, weightSupplier, current, evalPos, numProcessors, useCompensatedSummation);
+	}
+
+	/**
 	 * Compute the magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * Kahan-Babuska compensated summation is used to compute the superposition
@@ -245,12 +341,13 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * Kahan-Babuska compensated summation is used to compute the superposition
 	 * of the contributions from the polygon vertices.
 	 *
 	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param numProcessors number of processors to use for parallelization
@@ -258,7 +355,7 @@ public class ABSCAB {
 	 */
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			double[][] vertices,
-			double[][] weights,
+			double[] weights,
 			double current,
 			double[][] evalPos,
 			int numProcessors) {
@@ -267,13 +364,14 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 * Kahan-Babuska compensated summation is used to compute the superposition
 	 * of the contributions from the polygon vertices.
 	 *
 	 * @param numVertices number of points along polygon
 	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param numProcessors number of processors to use for parallelization
@@ -282,7 +380,7 @@ public class ABSCAB {
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			int numVertices,
 			IntFunction<double[]> vertexSupplier,
-			IntFunction<double[]> weightSupplier,
+			IntFunction<Double> weightSupplier,
 			double current,
 			double[][] evalPos,
 			int numProcessors) {
@@ -343,6 +441,60 @@ public class ABSCAB {
 	}
 
 	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param numProcessors number of processors to use for parallelization
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilamentWeighted(
+			double[][] vertices,
+			double[] weights,
+			double current,
+			double[][] evalPos,
+			int numProcessors,
+			boolean useCompensatedSummation) {
+		final int numEvalPos = validateCartesianVectorInput(evalPos);
+		double[][] vectorPotential = new double[3][numEvalPos];
+		vectorPotentialPolygonFilamentWeighted(vertices, weights, current, evalPos, vectorPotential, numProcessors, useCompensatedSummation);
+		return vectorPotential;
+	}
+
+	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param numVertices number of points along polygon
+	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param numProcessors number of processors to use for parallelization
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 * @return [3: x, y, z][numEvalPos] magnetic vector potential at evaluation locations; in Tm
+	 */
+	public static double[][] vectorPotentialPolygonFilamentWeighted(
+			int numVertices,
+			IntFunction<double[]> vertexSupplier,
+			IntFunction<Double> weightSupplier,
+			double current,
+			double[][] evalPos,
+			int numProcessors,
+			boolean useCompensatedSummation) {
+		final int numEvalPos = validateCartesianVectorInput(evalPos);
+		double[][] vectorPotential = new double[3][numEvalPos];
+		vectorPotentialPolygonFilamentWeighted(numVertices, vertexSupplier, weightSupplier, current, evalPos, vectorPotential, numProcessors, useCompensatedSummation);
+		return vectorPotential;
+	}
+
+	/**
 	 * Compute the magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
@@ -393,10 +545,11 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
 	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param numProcessors number of processors to use for parallelization
@@ -406,7 +559,7 @@ public class ABSCAB {
 	 */
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			double[][] vertices,
-			double[][] weights,
+			double[] weights,
 			double current,
 			double[][] evalPos,
 			int numProcessors,
@@ -418,11 +571,12 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
 	 * @param numVertices number of points along polygon
 	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param numProcessors number of processors to use for parallelization
@@ -433,7 +587,7 @@ public class ABSCAB {
 	public static double[][] magneticFieldPolygonFilamentWeighted(
 			int numVertices,
 			IntFunction<double[]> vertexSupplier,
-			IntFunction<double[]> weightSupplier,
+			IntFunction<Double> weightSupplier,
 			double current,
 			double[][] evalPos,
 			int numProcessors,
@@ -848,6 +1002,442 @@ public class ABSCAB {
 							try {
 							kernelVectorPotentialPolygonFilament(
 									vertexSupplier, current,
+									evalPos,
+									vectorPotential,
+									idxSourceStart, idxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
+									useCompensatedSummation);
+
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					});
+				}
+
+				// accept no more new threads and start execution
+				service.shutdown();
+
+				// wait until all threads are done
+				try {
+					service.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			} // parallelize over nSource or nEval
+		} // parallelization
+	}
+
+	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param vectorPotential [3: x, y, z][numEvalPos] target array for magnetic vector potential at evaluation locations; in Tm
+	 * @param numProcessors number of processors to use for parallelization
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 */
+	public static void vectorPotentialPolygonFilamentWeighted(
+			double[][] vertices,
+			double[] weights,
+			double current,
+			double[][] evalPos,
+			double[][] vectorPotential,
+			int numProcessors,
+			boolean useCompensatedSummation) {
+
+		final int numVertices = validateCartesianVectorInput(vertices);
+
+		if (numVertices < 2) {
+			throw new RuntimeException("need at least 2 vertices, but only got " + numVertices);
+		}
+
+		// number of straight wire segments
+		int numSegments = numVertices - 1;
+
+		int numWeights = weights.length;
+
+		if (numWeights != numSegments) {
+			throw new RuntimeException("need equal number of weights as polygon segments, but got " + numSegments + " segments and " + numWeights + " weights");
+		}
+
+		final int numEvalPos = validateCartesianVectorInput(evalPos);
+
+		if (numProcessors < 1) {
+			throw new RuntimeException("need at least 1 processor, but only got " + numProcessors);
+		}
+
+		if (current == 0.0) {
+			return;
+		}
+
+		if (numProcessors == 1) {
+			// single-threaded call
+			final int idxSourceStart = 0;
+			final int idxSourceEnd   = numSegments;
+			final int idxEvalStart   = 0;
+			final int idxEvalEnd     = numEvalPos;
+			kernelVectorPotentialPolygonFilamentWeighted(
+					vertices, weights, current,
+					evalPos,
+					vectorPotential,
+					idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+					useCompensatedSummation);
+		} else {
+			// use multithreading
+
+			if (numSegments > numEvalPos) {
+				// parallelize over numSegments
+
+				// Note that each thread needs its own copy of the vectorPotential array,
+				// so this approach might need quite some memory in case the number of
+				// threads and the number of evaluation points is large.
+
+				final int nThreads;
+				final int nSourcePerThread;
+				final int nSourceRemainder;
+				if (numSegments < numProcessors) {
+					nThreads = numSegments;
+
+					nSourcePerThread = 1;
+					nSourceRemainder = 0;
+				} else {
+					nThreads = numProcessors;
+
+					nSourcePerThread = numSegments / nThreads;
+					nSourceRemainder = numSegments % nThreads;
+				}
+				final int tIdxEvalStart = 0;
+				final int tIdxEvalEnd   = numEvalPos;
+
+				final double[][][] vectorPotentialContributions = new double[nThreads][3][numEvalPos];
+
+				ExecutorService service = Executors.newFixedThreadPool(nThreads);
+
+				// submit jobs
+				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int idxSourceStart =  idxThread      * nSourcePerThread;
+					int idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						idxSourceStart += idxThread;
+						idxSourceEnd   += idxThread + 1;
+					} else {
+						idxSourceStart += nSourceRemainder;
+						idxSourceEnd   += nSourceRemainder;
+					}
+
+					final int tIdxThread      = idxThread;
+					final int tIdxSourceStart = idxSourceStart;
+					final int tIdxSourceEnd   = idxSourceEnd;
+
+					service.submit(() -> {
+						try {
+							kernelVectorPotentialPolygonFilamentWeighted(
+									vertices, weights, current,
+									evalPos,
+									vectorPotentialContributions[tIdxThread],
+									tIdxSourceStart, tIdxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							// Print stack trace, as there is no other way to get notice if any of the threads failed.
+							e.printStackTrace();
+						}
+					});
+				}
+
+				// accept no more new threads and start execution
+				service.shutdown();
+
+				// wait until all threads are done
+				try {
+					service.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+
+				// sum up contributions from source chunks
+				if (useCompensatedSummation) {
+					for (int i=0; i<numEvalPos; ++i) {
+						final double[] sumX = new double[3];
+						final double[] sumY = new double[3];
+						final double[] sumZ = new double[3];
+						for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+							CompensatedSummation.compensatedAdd(sumX, vectorPotentialContributions[idxThread][0][i]);
+							CompensatedSummation.compensatedAdd(sumY, vectorPotentialContributions[idxThread][1][i]);
+							CompensatedSummation.compensatedAdd(sumZ, vectorPotentialContributions[idxThread][2][i]);
+						}
+						vectorPotential[0][i] += sumX[0]+ sumX[1] + sumX[2];
+						vectorPotential[1][i] += sumY[0]+ sumY[1] + sumY[2];
+						vectorPotential[2][i] += sumZ[0]+ sumZ[1] + sumZ[2];
+					}
+				} else {
+					for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+						for (int i=0; i<numEvalPos; ++i) {
+							vectorPotential[0][i] += vectorPotentialContributions[idxThread][0][i];
+							vectorPotential[1][i] += vectorPotentialContributions[idxThread][1][i];
+							vectorPotential[2][i] += vectorPotentialContributions[idxThread][2][i];
+						}
+					}
+				}
+			} else { // numEvalPos > nSource
+				// parallelize over numEvalPos
+
+				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numSegments;
+				final int nEvalPerThread;
+				final int nEvalRemainder;
+				if (numEvalPos < numProcessors) {
+					nThreads = numEvalPos;
+
+					nEvalPerThread = 1;
+					nEvalRemainder = 0;
+				} else {
+					nThreads = numProcessors;
+
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
+				}
+
+				ExecutorService service = Executors.newFixedThreadPool(nThreads);
+
+				// submit jobs
+				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int idxEvalStart =  idxThread      * nEvalPerThread;
+					int idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						idxEvalStart += idxThread;
+						idxEvalEnd   += idxThread + 1;
+					} else {
+						idxEvalStart += nEvalRemainder;
+						idxEvalEnd   += nEvalRemainder;
+					}
+
+					final int tIdxEvalStart = idxEvalStart;
+					final int tIdxEvalEnd   = idxEvalEnd;
+
+					service.submit(() -> {
+						try {
+							kernelVectorPotentialPolygonFilamentWeighted(
+									vertices, weights, current,
+									evalPos,
+									vectorPotential,
+									idxSourceStart, idxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					});
+				}
+
+				// accept no more new threads and start execution
+				service.shutdown();
+
+				// wait until all threads are done
+				try {
+					service.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			} // parallelize over nSource or nEval
+		} // parallelization
+	}
+
+	/**
+	 * Compute the magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param numVertices number of points along polygon
+	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param vectorPotential [3: x, y, z][numEvalPos] target array for magnetic vector potential at evaluation locations; in Tm
+	 * @param numProcessors number of processors to use for parallelization
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 */
+	public static void vectorPotentialPolygonFilamentWeighted(
+			int numVertices,
+			IntFunction<double[]> vertexSupplier,
+			IntFunction<Double> weightSupplier,
+			double current,
+			double[][] evalPos,
+			double[][] vectorPotential,
+			int numProcessors,
+			boolean useCompensatedSummation) {
+
+		if (numVertices < 2) {
+			throw new RuntimeException("need at least 2 vertices, but only got " + numVertices);
+		}
+
+		// number of straight wire segments
+		int numSegments = numVertices - 1;
+
+		final int numEvalPos = validateCartesianVectorInput(evalPos);
+
+		if (numProcessors < 1) {
+			throw new RuntimeException("need at least 1 processor, but only got " + numProcessors);
+		}
+
+		if (current == 0.0) {
+			return;
+		}
+
+		if (numProcessors == 1) {
+			// single-threaded call
+			final int idxSourceStart = 0;
+			final int idxSourceEnd   = numSegments;
+			final int idxEvalStart   = 0;
+			final int idxEvalEnd     = numEvalPos;
+			kernelVectorPotentialPolygonFilamentWeighted(
+					vertexSupplier, weightSupplier, current,
+					evalPos,
+					vectorPotential,
+					idxSourceStart, idxSourceEnd, idxEvalStart, idxEvalEnd,
+					useCompensatedSummation);
+		} else {
+			// use multithreading
+
+			if (numSegments > numEvalPos) {
+				// parallelize over numSegments
+
+				// Note that each thread needs its own copy of the vectorPotential array,
+				// so this approach might need quite some memory in case the number of
+				// threads and the number of evaluation points is large.
+
+				final int nThreads;
+				final int nSourcePerThread;
+				final int nSourceRemainder;
+				if (numSegments < numProcessors) {
+					nThreads = numSegments;
+
+					nSourcePerThread = 1;
+					nSourceRemainder = 0;
+				} else {
+					nThreads = numProcessors;
+
+					nSourcePerThread = numSegments / nThreads;
+					nSourceRemainder = numSegments % nThreads;
+				}
+				final int idxEvalStart = 0;
+				final int idxEvalEnd   = numEvalPos;
+
+				final double[][][] vectorPotentialContributions = new double[nThreads][3][numEvalPos];
+
+				ExecutorService service = Executors.newFixedThreadPool(nThreads);
+
+				// submit jobs
+				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int idxSourceStart =  idxThread      * nSourcePerThread;
+					int idxSourceEnd   = (idxThread + 1) * nSourcePerThread;
+					if (idxThread < nSourceRemainder) {
+						idxSourceStart += idxThread;
+						idxSourceEnd   += idxThread + 1;
+					} else {
+						idxSourceStart += nSourceRemainder;
+						idxSourceEnd   += nSourceRemainder;
+					}
+
+					final int tIdxThread      = idxThread;
+					final int tIdxSourceStart = idxSourceStart;
+					final int tIdxSourceEnd   = idxSourceEnd;
+
+					service.submit(() -> {
+						try {
+							kernelVectorPotentialPolygonFilamentWeighted(
+									vertexSupplier, weightSupplier, current,
+									evalPos,
+									vectorPotentialContributions[tIdxThread],
+									tIdxSourceStart, tIdxSourceEnd, idxEvalStart, idxEvalEnd,
+									useCompensatedSummation);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					});
+				}
+
+				// accept no more new threads and start execution
+				service.shutdown();
+
+				// wait until all threads are done
+				try {
+					service.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+
+				// sum up contributions from source chunks
+				if (useCompensatedSummation) {
+					for (int i=0; i<numEvalPos; ++i) {
+						final double[] sumX = new double[3];
+						final double[] sumY = new double[3];
+						final double[] sumZ = new double[3];
+						for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+							CompensatedSummation.compensatedAdd(sumX, vectorPotentialContributions[idxThread][0][i]);
+							CompensatedSummation.compensatedAdd(sumY, vectorPotentialContributions[idxThread][1][i]);
+							CompensatedSummation.compensatedAdd(sumZ, vectorPotentialContributions[idxThread][2][i]);
+						}
+						vectorPotential[0][i] += sumX[0]+ sumX[1] + sumX[2];
+						vectorPotential[1][i] += sumY[0]+ sumY[1] + sumY[2];
+						vectorPotential[2][i] += sumZ[0]+ sumZ[1] + sumZ[2];
+					}
+				} else {
+					for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+						for (int i=0; i<numEvalPos; ++i) {
+							vectorPotential[0][i] += vectorPotentialContributions[idxThread][0][i];
+							vectorPotential[1][i] += vectorPotentialContributions[idxThread][1][i];
+							vectorPotential[2][i] += vectorPotentialContributions[idxThread][2][i];
+						}
+					}
+				}
+			} else { // nEval > nSource
+				// parallelize over nEval
+
+				final int nThreads;
+				final int idxSourceStart = 0;
+				final int idxSourceEnd   = numSegments;
+				final int nEvalPerThread;
+				final int nEvalRemainder;
+				if (numEvalPos < numProcessors) {
+					nThreads = numEvalPos;
+
+					nEvalPerThread = 1;
+					nEvalRemainder = 0;
+				} else {
+					nThreads = numProcessors;
+
+					nEvalPerThread = numEvalPos / nThreads;
+					nEvalRemainder = numEvalPos % nThreads;
+				}
+
+				ExecutorService service = Executors.newFixedThreadPool(nThreads);
+
+				// submit jobs
+				for (int idxThread = 0; idxThread < nThreads; ++idxThread) {
+
+					int idxEvalStart =  idxThread      * nEvalPerThread;
+					int idxEvalEnd   = (idxThread + 1) * nEvalPerThread;
+					if (idxThread < nEvalRemainder) {
+						idxEvalStart += idxThread;
+						idxEvalEnd   += idxThread + 1;
+					} else {
+						idxEvalStart += nEvalRemainder;
+						idxEvalEnd   += nEvalRemainder;
+					}
+
+					final int tIdxEvalStart = idxEvalStart;
+					final int tIdxEvalEnd   = idxEvalEnd;
+
+					service.submit(() -> {
+							try {
+							kernelVectorPotentialPolygonFilamentWeighted(
+									vertexSupplier, weightSupplier, current,
 									evalPos,
 									vectorPotential,
 									idxSourceStart, idxSourceEnd, tIdxEvalStart, tIdxEvalEnd,
@@ -1302,6 +1892,7 @@ public class ABSCAB {
 	 * at a number of evaluation locations.
 	 *
 	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param magneticField [3: x, y, z][numEvalPos] target array for magnetic field at evaluation locations; in T
@@ -1311,7 +1902,7 @@ public class ABSCAB {
 	 */
 	public static void magneticFieldPolygonFilamentWeighted(
 			double[][] vertices,
-			double[][] weights,
+			double[] weights,
 			double current,
 			double[][] evalPos,
 			double[][] magneticField,
@@ -1327,7 +1918,7 @@ public class ABSCAB {
 		// number of straight wire segments
 		int numSegments = numVertices - 1;
 
-		final int numWeights = validateCartesianVectorInput(weights);
+		final int numWeights = weights.length;
 
 		if (numWeights != numSegments) {
 			throw new RuntimeException("need equal number of weights as polygon segments, but got " + numSegments + " segments and " + numWeights + " weights");
@@ -1523,6 +2114,7 @@ public class ABSCAB {
 	 *
 	 * @param numVertices number of points along polygon
 	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param magneticField [3: x, y, z][numEvalPos] target array for magnetic field at evaluation locations; in T
@@ -1533,7 +2125,7 @@ public class ABSCAB {
 	public static void magneticFieldPolygonFilamentWeighted(
 			int numVertices,
 			IntFunction<double[]> vertexSupplier,
-			IntFunction<double[]> weightSupplier,
+			IntFunction<Double> weightSupplier,
 			double current,
 			double[][] evalPos,
 			double[][] magneticField,
@@ -1995,6 +2587,274 @@ public class ABSCAB {
 	}
 
 	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param vectorPotential [3: x, y, z][numEvalPos] target array for magnetic vector potential at evaluation locations; in Tm
+	 * @param idxSourceStart first index in {@code vertices} to take into account
+	 * @param idxSourceEnd (last+1) index in {@code vertices} to take into account
+	 * @param idxEvalStart first index in {@code evalPos} to take into account
+	 * @param idxEvalEnd (last+1) index in {@code evalPos} to take into account
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 */
+	private static void kernelVectorPotentialPolygonFilamentWeighted(
+			double[][] vertices,
+			double[] weights,
+			double current,
+			double[][] evalPos,
+			double[][] vectorPotential,
+			int idxSourceStart,
+			int idxSourceEnd,
+			int idxEvalStart,
+			int idxEvalEnd,
+			boolean useCompensatedSummation) {
+
+		final double aPrefactor_weighted = MU_0_BY_2_PI * current;
+
+		// setup compensated summation storage
+		final double[][] aXSum;
+		final double[][] aYSum;
+		final double[][] aZSum;
+		if (useCompensatedSummation) {
+			int numEvalPos = idxEvalEnd - idxEvalStart;
+			aXSum = new double[numEvalPos][3];
+			aYSum = new double[numEvalPos][3];
+			aZSum = new double[numEvalPos][3];
+		} else {
+			aXSum = null;
+			aYSum = null;
+			aZSum = null;
+		}
+
+		double x_i = vertices[0][idxSourceStart];
+		double y_i = vertices[1][idxSourceStart];
+		double z_i = vertices[2][idxSourceStart];
+
+		for (int idxSource = idxSourceStart; idxSource < idxSourceEnd; ++idxSource) {
+
+			final double x_f = vertices[0][idxSource+1];
+			final double y_f = vertices[1][idxSource+1];
+			final double z_f = vertices[2][idxSource+1];
+
+			final double weight = weights[idxSource];
+
+			// vector from start to end of i:th wire segment
+			final double dx = x_f - x_i;
+			final double dy = y_f - y_i;
+			final double dz = z_f - z_i;
+
+			// squared length of wire segment
+			final double l2 = dx * dx + dy * dy + dz * dz;
+			if (l2 == 0.0) {
+				// skip zero-length segments: no contribution
+				continue;
+			}
+
+			// length of wire segment
+			final double l = Math.sqrt(l2);
+
+			// unit vector parallel to wire segment
+			final double eX = dx / l;
+			final double eY = dy / l;
+			final double eZ = dz / l;
+
+			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
+
+				// vector from start of wire segment to eval pos
+				final double r0x = evalPos[0][idxEval] - x_i;
+				final double r0y = evalPos[1][idxEval] - y_i;
+				final double r0z = evalPos[2][idxEval] - z_i;
+
+				// z position along axis of wire segment
+				final double alignedZ = eX * r0x + eY * r0y + eZ * r0z;
+
+				// normalized z component of evaluation location in coordinate system of wire segment
+				final double zP = alignedZ / l;
+
+				// vector perpendicular to axis of wire segment, pointing at evaluation pos
+				final double rPerpX = r0x - alignedZ * eX;
+				final double rPerpY = r0y - alignedZ * eY;
+				final double rPerpZ = r0z - alignedZ * eZ;
+
+				// perpendicular distance between evalPos and axis of wire segment
+				final double alignedR = Math.sqrt(rPerpX * rPerpX + rPerpY * rPerpY + rPerpZ * rPerpZ);
+
+				// normalized rho component of evaluation location in coordinate system of wire segment
+				final double rhoP = alignedR / l;
+
+				// compute parallel component of magnetic vector potential, including current and mu_0
+				final double aParallel = aPrefactor_weighted * straightWireSegment_A_z(rhoP, zP) * weight;
+
+				// add contribution from wire segment to result
+				if (useCompensatedSummation) {
+					CompensatedSummation.compensatedAdd(aXSum[idxEval - idxEvalStart], aParallel * eX);
+					CompensatedSummation.compensatedAdd(aYSum[idxEval - idxEvalStart], aParallel * eY);
+					CompensatedSummation.compensatedAdd(aZSum[idxEval - idxEvalStart], aParallel * eZ);
+				} else {
+					vectorPotential[0][idxEval] += aParallel * eX;
+					vectorPotential[1][idxEval] += aParallel * eY;
+					vectorPotential[2][idxEval] += aParallel * eZ;
+				}
+			}
+
+			// shift to next point
+			x_i = x_f;
+			y_i = y_f;
+			z_i = z_f;
+		}
+
+		if (useCompensatedSummation) {
+			// obtain compensated sums from summation objects
+			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
+				int relIdxEval = idxEval - idxEvalStart;
+				vectorPotential[0][idxEval] = aXSum[relIdxEval][0] + aXSum[relIdxEval][1] + aXSum[relIdxEval][2];
+				vectorPotential[1][idxEval] = aYSum[relIdxEval][0] + aYSum[relIdxEval][1] + aYSum[relIdxEval][2];
+				vectorPotential[2][idxEval] = aZSum[relIdxEval][0] + aZSum[relIdxEval][1] + aZSum[relIdxEval][2];
+			}
+		}
+	}
+
+	/**
+	 * Compute the weighted magnetic vector potential of a polygon filament
+	 * at a number of evaluation locations.
+	 *
+	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
+	 * @param current current along polygon; in A
+	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
+	 * @param vectorPotential [3: x, y, z][numEvalPos] target array for magnetic vector potential at evaluation locations; in Tm
+	 * @param idxSourceStart first index in {@code vertices} to take into account
+	 * @param idxSourceEnd (last+1) index in {@code vertices} to take into account
+	 * @param idxEvalStart first index in {@code evalPos} to take into account
+	 * @param idxEvalEnd (last+1) index in {@code evalPos} to take into account
+	 * @param useCompensatedSummation if true, use Kahan-Babuska compensated summation to compute the superposition
+	 *                                of the contributions from the polygon vertices; otherwise, use standard += summation
+	 */
+	private static void kernelVectorPotentialPolygonFilamentWeighted(
+			IntFunction<double[]> vertexSupplier,
+			IntFunction<Double> weightSupplier,
+			double current,
+			double[][] evalPos,
+			double[][] vectorPotential,
+			int idxSourceStart,
+			int idxSourceEnd,
+			int idxEvalStart,
+			int idxEvalEnd,
+			boolean useCompensatedSummation) {
+
+		final double aPrefactor = MU_0_BY_2_PI * current;
+
+		// setup compensated summation storage
+		final double[][] aXSum;
+		final double[][] aYSum;
+		final double[][] aZSum;
+		if (useCompensatedSummation) {
+			int numEvalPos = idxEvalEnd - idxEvalStart;
+			aXSum = new double[numEvalPos][3];
+			aYSum = new double[numEvalPos][3];
+			aZSum = new double[numEvalPos][3];
+		} else {
+			aXSum = null;
+			aYSum = null;
+			aZSum = null;
+		}
+
+		double[] firstPoint = vertexSupplier.apply(idxSourceStart);
+		double x_i = firstPoint[0];
+		double y_i = firstPoint[1];
+		double z_i = firstPoint[2];
+
+		for (int idxSource = idxSourceStart; idxSource < idxSourceEnd; ++idxSource) {
+
+			final double[] nextPoint = vertexSupplier.apply(idxSource+1);
+			final double x_f = nextPoint[0];
+			final double y_f = nextPoint[1];
+			final double z_f = nextPoint[2];
+
+			final double weight = weightSupplier.apply(idxSource);
+
+			// vector from start to end of i:th wire segment
+			final double dx = x_f - x_i;
+			final double dy = y_f - y_i;
+			final double dz = z_f - z_i;
+
+			// squared length of wire segment
+			final double l2 = dx * dx + dy * dy + dz * dz;
+			if (l2 == 0.0) {
+				// skip zero-length segments: no contribution
+				continue;
+			}
+
+			// length of wire segment
+			final double l = Math.sqrt(l2);
+
+			// unit vector parallel to wire segment
+			final double eX = dx / l;
+			final double eY = dy / l;
+			final double eZ = dz / l;
+
+			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
+
+				// vector from start of wire segment to eval pos
+				final double r0x = evalPos[0][idxEval] - x_i;
+				final double r0y = evalPos[1][idxEval] - y_i;
+				final double r0z = evalPos[2][idxEval] - z_i;
+
+				// z position along axis of wire segment
+				final double alignedZ = eX * r0x + eY * r0y + eZ * r0z;
+
+				// normalized z component of evaluation location in coordinate system of wire segment
+				final double zP = alignedZ / l;
+
+				// vector perpendicular to axis of wire segment, pointing at evaluation pos
+				final double rPerpX = r0x - alignedZ * eX;
+				final double rPerpY = r0y - alignedZ * eY;
+				final double rPerpZ = r0z - alignedZ * eZ;
+
+				// perpendicular distance between evalPos and axis of wire segment
+				final double alignedR = Math.sqrt(rPerpX * rPerpX + rPerpY * rPerpY + rPerpZ * rPerpZ);
+
+				// normalized rho component of evaluation location in coordinate system of wire segment
+				final double rhoP = alignedR / l;
+
+				// compute parallel component of magnetic vector potential, including current and mu_0
+				final double aParallel_weighted = aPrefactor * straightWireSegment_A_z(rhoP, zP) * weight;
+
+				// add contribution from wire segment to result
+				if (useCompensatedSummation) {
+					CompensatedSummation.compensatedAdd(aXSum[idxEval - idxEvalStart], aParallel_weighted * eX);
+					CompensatedSummation.compensatedAdd(aYSum[idxEval - idxEvalStart], aParallel_weighted * eY);
+					CompensatedSummation.compensatedAdd(aZSum[idxEval - idxEvalStart], aParallel_weighted * eZ);
+				} else {
+					vectorPotential[0][idxEval] += aParallel_weighted * eX;
+					vectorPotential[1][idxEval] += aParallel_weighted * eY;
+					vectorPotential[2][idxEval] += aParallel_weighted * eZ;
+				}
+			}
+
+			// shift to next point
+			x_i = x_f;
+			y_i = y_f;
+			z_i = z_f;
+		}
+
+		if (useCompensatedSummation) {
+			// obtain compensated sums from summation objects
+			for (int idxEval = idxEvalStart; idxEval < idxEvalEnd; ++idxEval) {
+				int relIdxEval = idxEval - idxEvalStart;
+				vectorPotential[0][idxEval] = aXSum[relIdxEval][0] + aXSum[relIdxEval][1] + aXSum[relIdxEval][2];
+				vectorPotential[1][idxEval] = aYSum[relIdxEval][0] + aYSum[relIdxEval][1] + aYSum[relIdxEval][2];
+				vectorPotential[2][idxEval] = aZSum[relIdxEval][0] + aZSum[relIdxEval][1] + aZSum[relIdxEval][2];
+			}
+		}
+	}
+
+	/**
 	 * Compute the magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
@@ -2297,10 +3157,11 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
 	 * @param vertices [3: x, y, z][numVertices] points along polygon; in m
+	 * @param weights [numVertices - 1] weights for polygon line segments
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param magneticField [3: x, y, z][numEvalPos] target array for magnetic field at evaluation locations; in T
@@ -2313,7 +3174,7 @@ public class ABSCAB {
 	 */
 	private static void kernelMagneticFieldPolygonFilamentWeighted(
 			double[][] vertices,
-			double[][] weights,
+			double[] weights,
 			double current,
 			double[][] evalPos,
 			double[][] magneticField,
@@ -2351,9 +3212,7 @@ public class ABSCAB {
 			final double y_f = vertices[1][idxSource+1];
 			final double z_f = vertices[2][idxSource+1];
 
-			final double w_x = weights[0][idxSource];
-			final double w_y = weights[1][idxSource];
-			final double w_z = weights[2][idxSource];
+			final double weight = weights[idxSource];
 
 			// vector from start to end of i:th wire segment
 			final double dx = x_f - x_i;
@@ -2409,7 +3268,7 @@ public class ABSCAB {
 					final double rhoP = alignedR / l;
 
 					// compute tangential component of magnetic vector potential, including current and mu_0
-					final double bPhi = bPrefactor * straightWireSegment_B_phi(rhoP, zP);
+					final double bPhi_weighted = bPrefactor * straightWireSegment_B_phi(rhoP, zP) * weight;
 
 					// unit vector in radial direction
 					final double eRX = rPerpX / alignedR;
@@ -2423,13 +3282,13 @@ public class ABSCAB {
 
 					// add contribution from wire segment to result
 					if (useCompensatedSummation) {
-						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi * ePhiX * w_x);
-						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi * ePhiY * w_y);
-						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi * ePhiZ * w_z);
+						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi_weighted * ePhiX);
+						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi_weighted * ePhiY);
+						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi_weighted * ePhiZ);
 					} else {
-						magneticField[0][idxEval] += bPhi * ePhiX * w_x;
-						magneticField[1][idxEval] += bPhi * ePhiY * w_y;
-						magneticField[2][idxEval] += bPhi * ePhiZ * w_z;
+						magneticField[0][idxEval] += bPhi_weighted * ePhiX;
+						magneticField[1][idxEval] += bPhi_weighted * ePhiY;
+						magneticField[2][idxEval] += bPhi_weighted * ePhiZ;
 					}
 				}
 			}
@@ -2452,10 +3311,11 @@ public class ABSCAB {
 	}
 
 	/**
-	 * Compute the magnetic field of a polygon filament
+	 * Compute the weighted magnetic field of a polygon filament
 	 * at a number of evaluation locations.
 	 *
 	 * @param vertexSupplier callback which provides the points along the polygon as {x, y, z}; in m
+	 * @param weightSupplier callback which provides the weights for each line segment
 	 * @param current current along polygon; in A
 	 * @param evalPos [3: x, y, z][numEvalPos] evaluation locations; in m
 	 * @param magneticField [3: x, y, z][numEvalPos] target array for magnetic field at evaluation locations; in T
@@ -2468,7 +3328,7 @@ public class ABSCAB {
 	 */
 	private static void kernelMagneticFieldPolygonFilamentWeighted(
 			IntFunction<double[]> vertexSupplier,
-			IntFunction<double[]> weightSupplier,
+			IntFunction<Double> weightSupplier,
 			double current,
 			double[][] evalPos,
 			double[][] magneticField,
@@ -2508,10 +3368,7 @@ public class ABSCAB {
 			final double y_f = nextPoint[1];
 			final double z_f = nextPoint[2];
 
-			final double[] weight = weightSupplier.apply(idxSource);
-			final double w_x = weight[0];
-			final double w_y = weight[1];
-			final double w_z = weight[2];
+			final double weight = weightSupplier.apply(idxSource);
 
 			// vector from start to end of i:th wire segment
 			final double dx = x_f - x_i;
@@ -2567,7 +3424,7 @@ public class ABSCAB {
 					final double rhoP = alignedR / l;
 
 					// compute tangential component of magnetic vector potential, including current and mu_0
-					final double bPhi = bPrefactor * straightWireSegment_B_phi(rhoP, zP);
+					final double bPhi_weighted = bPrefactor * straightWireSegment_B_phi(rhoP, zP) * weight;
 
 					// unit vector in radial direction
 					final double eRX = rPerpX / alignedR;
@@ -2581,13 +3438,13 @@ public class ABSCAB {
 
 					// add contribution from wire segment to result
 					if (useCompensatedSummation) {
-						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi * ePhiX * w_x);
-						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi * ePhiY * w_y);
-						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi * ePhiZ * w_z);
+						CompensatedSummation.compensatedAdd(bXSum[idxEval - idxEvalStart], bPhi_weighted * ePhiX);
+						CompensatedSummation.compensatedAdd(bYSum[idxEval - idxEvalStart], bPhi_weighted * ePhiY);
+						CompensatedSummation.compensatedAdd(bZSum[idxEval - idxEvalStart], bPhi_weighted * ePhiZ);
 					} else {
-						magneticField[0][idxEval] += bPhi * ePhiX * w_x;
-						magneticField[1][idxEval] += bPhi * ePhiY * w_y;
-						magneticField[2][idxEval] += bPhi * ePhiZ * w_z;
+						magneticField[0][idxEval] += bPhi_weighted * ePhiX;
+						magneticField[1][idxEval] += bPhi_weighted * ePhiY;
+						magneticField[2][idxEval] += bPhi_weighted * ePhiZ;
 					}
 				}
 			}
